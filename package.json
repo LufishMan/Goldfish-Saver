@@ -1,0 +1,52 @@
+{
+  "name": "goldfish-saver",
+  "version": "1.0.4",
+  "description": "GoldFish Saver — 簡易桌面備忘錄 (Electron)，支援 HTML / Markdown 編輯",
+  "main": "main.js",
+  "author": "Ken Lu",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:editor": "esbuild renderer/src/editor-entry.js --bundle --format=iife --outfile=renderer/vendor/tiptap.bundle.js --minify",
+    "dist": "npm run build:editor && electron-builder --win",
+    "dist:mac": "npm run build:editor && electron-builder --mac",
+    "dist:linux": "npm run build:editor && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.kenlu.goldfishsaver",
+    "productName": "GoldFish Saver",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "build/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Utility"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.28.1"
+  },
+  "dependencies": {
+    "@tiptap/core": "^2.27.2",
+    "@tiptap/pm": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
+    "dompurify": "^3.1.6",
+    "marked": "^12.0.2",
+    "tiptap-markdown": "^0.8.10"
+  }
+}

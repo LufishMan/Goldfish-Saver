@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>GoldFish Saver</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 自訂標題列（原生視窗控制鈕由系統繪於右上） -->
+  <div class="titlebar">
+    <span class="tb-icon">🐟</span>
+    <span class="tb-title">GoldFish Saver</span>
+  </div>
+
+  <!-- 載入中：視窗立即開啟，畫面渲染完成後移除 -->
+  <div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">GoldFish Saver 載入中…</div>
+  </div>
+
+  <div class="app">
+    <!-- 左側：清單 -->
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="head-row">
+          <button id="newBtn" class="btn-new" title="新增備忘錄">＋ 新增</button>
+          <select id="sortSelect" class="sort-select" title="排序方式">
+            <option value="manual">手動排序（可拖曳）</option>
+            <option value="date">依日期</option>
+            <option value="title">依標題</option>
+          </select>
+        </div>
+        <input id="search" class="search" type="text" placeholder="搜尋標題 / 內容 / 標籤…" />
+      </div>
+      <ul id="memoList" class="memo-list"></ul>
+      <div class="sidebar-foot">
+        <span id="countLabel">0 則備忘錄</span>
+        <div class="foot-actions">
+          <button id="modeBtn" class="foot-btn" title="檢視模式（浮動小視窗）">
+            <span class="fb-icon">👁</span><span class="fb-label">檢視</span>
+          </button>
+          <button id="settingsBtn" class="foot-btn" title="設定">
+            <span class="fb-icon">⚙</span><span class="fb-label">設定</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右側：編輯區 -->
+    <main class="editor">
+      <div id="emptyState" class="empty-state">
+        <div class="empty-icon">🗒️</div>
+        <p>從左側選一則備忘錄，或按「＋ 新增」開始。</p>
+      </div>
+
+      <div id="editorPane" class="editor-pane hidden">
+        <div class="field-row">
+          <input id="title" class="title-input" type="text" placeholder="標題" />
+        </div>
+
+        <!-- 日期：單日 / 區間 -->
+        <div class="meta-row">
+          <div class="meta-item">
+            <span class="meta-label">日期模式</span>
+            <div class="seg seg-sm">
+              <button class="dmode-btn active" data-dmode="single">單日</button>
+              <button class="dmode-btn" data-dmode="range">區間</button>
+            </div>
+          </div>
+
+          <label class="meta-item" id="singleDateWrap">
+            <span class="meta-label">日期</span>
+            <span class="date-field">
+              <input id="date" class="date-input" type="date" />
+              <span class="cal-emoji">📅</span>
+            </span>
+          </label>
+
+          <label class="meta-item hidden" id="startDateWrap">
+            <span class="meta-label">開始</span>
+            <span class="date-field">
+              <input id="startDate" class="date-input" type="date" />
+              <span class="cal-emoji">📅</span>
+            </span>
+          </label>
+          <label class="meta-item hidden" id="endDateWrap">
+            <span class="meta-label">結束</span>
+            <span class="date-field">
+              <input id="endDate" class="date-input" type="date" />
+              <span class="cal-emoji">📅</span>
+            </span>
+          </label>
+        </div>
+        <div id="dateError" class="date-error hidden"></div>
+
+        <!-- 標籤（最多 2 個） -->
+        <div class="tag-row">
+          <span class="meta-label">標籤</span>
+          <div id="tagChips" class="tag-chips"></div>
+          <input id="tagInput" class="tag-input" type="text" maxlength="24"
+                 placeholder="輸入後按 Enter（最多 3 個）" />
+        </div>
+
+        <!-- 動作列：顏色 / 釘選 / 刪除 -->
+        <div class="format-bar">
+          <div id="colorBar" class="color-bar" title="顏色標籤"></div>
+          <button id="pinBtn" class="ghost-btn" title="釘選置頂">📌 釘選</button>
+          <span id="saveStatus" class="save-status"></span>
+          <button id="deleteBtn" class="danger-btn" title="刪除這則">🗑 刪除</button>
+        </div>
+
+        <!-- Markdown 格式工具列 -->
+        <div id="mdToolbar" class="md-toolbar">
+          <button class="md-btn" data-md="bold" title="粗體 (Ctrl+B)"><b>B</b></button>
+          <button class="md-btn" data-md="italic" title="斜體 (Ctrl+I)"><i>I</i></button>
+          <button class="md-btn" data-md="strike" title="刪除線"><s>S</s></button>
+          <button class="md-btn" data-md="code" title="行內程式碼">&lt;/&gt;</button>
+          <span class="tb-sep"></span>
+          <button class="md-btn" data-md="h1" title="標題 1">H1</button>
+          <button class="md-btn" data-md="h2" title="標題 2">H2</button>
+          <button class="md-btn" data-md="h3" title="標題 3">H3</button>
+          <span class="tb-sep"></span>
+          <button class="md-btn" data-md="bulletList" title="項目清單">• 清單</button>
+          <button class="md-btn" data-md="orderedList" title="編號清單">1. 清單</button>
+          <button class="md-btn" data-md="blockquote" title="引用">❝</button>
+          <button class="md-btn" data-md="codeBlock" title="程式碼區塊">{ }</button>
+          <span class="tb-sep"></span>
+          <button class="md-btn" data-md="undo" title="復原 (Ctrl+Z)">↶</button>
+          <button class="md-btn" data-md="redo" title="重做 (Ctrl+Y)">↷</button>
+        </div>
+
+        <div class="content-area">
+          <div id="tiptap" class="tiptap-editor"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 檢視模式：浮動小視窗（子母畫面） -->
+    <section id="miniPane" class="mini-pane hidden">
+      <div class="mini-bar">
+        <button id="miniBackBtn" class="mini-btn hidden" title="返回清單">← 清單</button>
+        <span class="mini-label">便利貼</span>
+        <button id="miniDelBtn" class="mini-btn danger hidden" title="刪除這則">🗑</button>
+        <button id="miniExpandBtn" class="mini-btn" title="開啟完整編輯模式">⤢ 編輯</button>
+      </div>
+      <ul id="miniList" class="mini-list"></ul>
+      <div id="miniDetail" class="mini-detail hidden">
+        <h2 id="miniDTitle" class="mini-d-title"></h2>
+        <div class="mini-d-meta">
+          <span id="miniDDate" class="mini-d-date"></span>
+          <div id="miniDTags" class="mini-d-tags"></div>
+        </div>
+        <div id="miniMdToolbar" class="md-toolbar compact">
+          <button class="md-btn" data-md="bold" title="粗體"><b>B</b></button>
+          <button class="md-btn" data-md="italic" title="斜體"><i>I</i></button>
+          <button class="md-btn" data-md="strike" title="刪除線"><s>S</s></button>
+          <span class="tb-sep"></span>
+          <button class="md-btn" data-md="h1" title="標題 1">H1</button>
+          <button class="md-btn" data-md="h2" title="標題 2">H2</button>
+          <span class="tb-sep"></span>
+          <button class="md-btn" data-md="bulletList" title="項目清單">•</button>
+          <button class="md-btn" data-md="orderedList" title="編號清單">1.</button>
+          <button class="md-btn" data-md="blockquote" title="引用">❝</button>
+          <button class="md-btn" data-md="code" title="行內程式碼">&lt;/&gt;</button>
+        </div>
+        <div id="miniTiptap" class="tiptap-editor"></div>
+      </div>
+    </section>
+
+    <!-- 設定 / 個性化面板 -->
+    <div id="settingsOverlay" class="overlay hidden">
+      <div class="settings-panel">
+        <div class="settings-head">
+          <span>⚙ 設定</span>
+          <button id="settingsClose" class="foot-btn" title="關閉">✕</button>
+        </div>
+        <label class="setting-row">
+          <span class="setting-label">主題色</span>
+          <select id="themeSelect" class="setting-select">
+            <option value="default">🟡 琥珀夜（預設）</option>
+            <option value="paper">⚪ 暖紙淺色</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span class="setting-label">字體大小</span>
+          <select id="fontSelect" class="setting-select">
+            <option value="small">小</option>
+            <option value="medium">中（預設）</option>
+            <option value="large">大</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- 自訂對話框（取代瀏覽器原生 confirm / prompt） -->
+    <div id="dialogOverlay" class="overlay hidden">
+      <div class="dialog">
+        <div id="dialogMsg" class="dialog-msg"></div>
+        <input id="dialogInput" class="dialog-input hidden" type="text" />
+        <div class="dialog-actions">
+          <button id="dialogCancel" class="dialog-btn">取消</button>
+          <button id="dialogOk" class="dialog-btn primary">確定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/tiptap.bundle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

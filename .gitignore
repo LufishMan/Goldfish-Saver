@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+
+# 由 build:editor 產生，CI 會自行重建
+renderer/vendor/tiptap.bundle.js
