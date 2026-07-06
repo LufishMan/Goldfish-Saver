@@ -153,12 +153,18 @@ function isToday(m) {
   return m.date === t;
 }
 
-// 日期徽章（無日期則不顯示）；僅「當日」加上 highlight 樣式
+// 是否「已過期」：相關日期早於今天（區間=結束日；單日=日期）
+function isExpired(m) {
+  const d = m.dateMode === 'range' ? m.endDate : m.date;
+  return !!d && d < todayStr();
+}
+
+// 日期徽章（無日期則不顯示）；已過期加紅色 highlight，當日加強調樣式
 function dateBadge(m, cls = 'mi-date') {
   const d = dateLabel(m);
   if (!d) return '';
-  const today = isToday(m) ? ' today' : '';
-  return `<span class="${cls}${today}">📅 ${escapeHtml(d)}</span>`;
+  const state = isExpired(m) ? ' expired' : (isToday(m) ? ' today' : '');
+  return `<span class="${cls}${state}">📅 ${escapeHtml(d)}</span>`;
 }
 
 // 區間是否超過 3 個月，或結束早於開始
@@ -566,7 +572,8 @@ function showMiniDetail(id) {
   els.miniDTitle.textContent = m.title || '（未命名）';
   els.miniDDate.textContent = dateLabel(m) ? '📅 ' + dateLabel(m) : '';
   els.miniDDate.classList.toggle('hidden', !dateLabel(m));
-  els.miniDDate.classList.toggle('today', isToday(m));
+  els.miniDDate.classList.toggle('today', isToday(m) && !isExpired(m));
+  els.miniDDate.classList.toggle('expired', isExpired(m));
   els.miniDTags.innerHTML = (m.tags || [])
     .map(t => `<span class="chip" title="${escapeHtml(t)}"><span class="chip-text">${escapeHtml(t)}</span></span>`).join('');
 

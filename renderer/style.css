@@ -8,6 +8,7 @@
   --accent: #f4c430;     /* 便利貼黃（預設） */
   --accent-soft: #5b5230;
   --danger: #e5564b;
+  --danger-soft: #4a2622;  /* 過期日期底色 */
   --radius: 10px;
   /* 衍生色（供主題覆寫） */
   --on-accent: #2a2410;  /* accent 底色上的文字 */
@@ -26,7 +27,7 @@
 :root[data-theme="paper"] {
   --bg: #f3efe7; --panel: #ece6da; --panel-2: #fbf8f1; --border: #d8cfbe;
   --text: #2c2a25; --text-dim: #8a8170; --accent: #d98324; --accent-soft: #f4e2c6;
-  --danger: #d2533f; --on-accent: #fff; --on-danger: #fff;
+  --danger: #d2533f; --danger-soft: #f6d9d1; --on-accent: #fff; --on-danger: #fff;
   --active-bg: #e3d9c6; --hover-bg: #ded3bd; --code-bg: #e8e1d2;
   --scroll: #cabfa9; --scroll-hover: #b8ab92; --swatch-ring: #2c2a25;
 }
@@ -62,7 +63,7 @@ input, textarea, button, select, [contenteditable] {
 }
 /* macOS：紅綠燈按鈕在左上，標題內容往右讓位 */
 .platform-darwin .titlebar { padding-left: 80px; }
-.tb-icon { font-size: 16px; line-height: 1; }
+.tb-icon { width: 20px; height: 20px; object-fit: contain; display: block; border-radius: 4px; }
 .tb-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: 0.3px; }
 
 .app { display: flex; flex: 1; min-height: 0; }
@@ -216,6 +217,11 @@ input, textarea, button, select, [contenteditable] {
 .mi-date.today {
   background: var(--accent-soft);
   color: var(--accent);
+  font-weight: 700;
+}
+.mi-date.expired {
+  background: var(--danger-soft);
+  color: var(--danger);
   font-weight: 700;
 }
 .mi-tags {
@@ -614,6 +620,11 @@ input, textarea, button, select, [contenteditable] {
 .mini-d-date.today {
   background: var(--accent-soft);
   color: var(--accent);
+  font-weight: 700;
+}
+.mini-d-date.expired {
+  background: var(--danger-soft);
+  color: var(--danger);
   font-weight: 700;
 }
 .mini-d-tags { display: flex; gap: 6px; }

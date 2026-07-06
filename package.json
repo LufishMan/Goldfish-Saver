@@ -1,6 +1,6 @@
 {
   "name": "goldfish-saver",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "GoldFish Saver — 簡易桌面備忘錄 (Electron)，支援 HTML / Markdown 編輯",
   "main": "main.js",
   "author": "Ken Lu",
