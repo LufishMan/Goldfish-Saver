@@ -109,23 +109,23 @@
               <span class="cal-emoji">📅</span>
             </span>
           </label>
+
+          <!-- 待辦提醒（併入 meta 列，過寬時自動換行） -->
+          <div class="meta-item reminder-meta">
+            <span class="meta-label">⏰ 提醒</span>
+            <div class="remind-controls">
+              <label class="remind-toggle" title="到指定時間跳出系統提醒">
+                <input id="remindToggle" type="checkbox" />
+                <span class="remind-toggle-txt">開啟</span>
+              </label>
+              <span id="remindAtWrap" class="date-field hidden">
+                <input id="remindAt" class="date-input remind-input" type="datetime-local" />
+              </span>
+              <span id="remindHint" class="remind-hint hidden"></span>
+            </div>
+          </div>
         </div>
         <div id="dateError" class="date-error hidden"></div>
-
-        <!-- 待辦提醒 -->
-        <div class="remind-row">
-          <label class="remind-toggle" title="到指定時間跳出系統提醒">
-            <input id="remindToggle" type="checkbox" />
-            <span class="meta-label">⏰ 提醒</span>
-          </label>
-          <label class="meta-item hidden" id="remindAtWrap">
-            <span class="meta-label">提醒時間</span>
-            <span class="date-field">
-              <input id="remindAt" class="date-input remind-input" type="datetime-local" />
-            </span>
-          </label>
-          <span id="remindHint" class="remind-hint hidden"></span>
-        </div>
 
         <!-- 標籤（最多 2 個） -->
         <div class="tag-row">

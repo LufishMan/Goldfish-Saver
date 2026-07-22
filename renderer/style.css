@@ -453,7 +453,7 @@ input, textarea, button, select, [contenteditable] {
 
 .editor-pane { flex: 1; display: flex; flex-direction: column; padding: 16px; min-height: 0; }
 
-.field-row { margin-bottom: 10px; }
+.field-row { margin-bottom: 8px; }
 .title-input {
   width: 100%;
   background: transparent;
@@ -467,7 +467,7 @@ input, textarea, button, select, [contenteditable] {
 }
 .title-input:focus { border-bottom-color: var(--accent); }
 
-.meta-row { display: flex; gap: 16px; margin-bottom: 6px; align-items: flex-end; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 10px; align-items: flex-end; }
 .meta-item { display: flex; flex-direction: column; gap: 4px; }
 .meta-item.grow { flex: 1; }
 .meta-label { color: var(--text-dim); font-size: 11px; }
@@ -502,13 +502,12 @@ input, textarea, button, select, [contenteditable] {
   margin: 2px 0 8px;
 }
 
-/* 待辦提醒 */
-.remind-row {
+/* 待辦提醒（併入 meta 列的一個 meta-item） */
+.reminder-meta .remind-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 2px 0 12px;
+  gap: 8px;
+  min-height: 34px;   /* 與同列的日期/分段控制對齊 */
 }
 .remind-toggle {
   display: inline-flex;
@@ -518,7 +517,7 @@ input, textarea, button, select, [contenteditable] {
   user-select: none;
 }
 .remind-toggle input { cursor: pointer; accent-color: var(--accent); }
-.remind-toggle .meta-label { font-size: 13px; }
+.remind-toggle-txt { font-size: 13px; color: var(--text-dim); }
 .remind-input { padding-right: 10px; }
 /* 提醒欄位還原原生日曆鈕（此欄無 emoji 疊圖） */
 .remind-input::-webkit-calendar-picker-indicator {
@@ -555,7 +554,7 @@ input, textarea, button, select, [contenteditable] {
 }
 
 /* 標籤 */
-.tag-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 12px; }
+.tag-row { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
 .tag-chips { display: flex; gap: 6px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -579,7 +578,7 @@ input, textarea, button, select, [contenteditable] {
 .tag-input:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 工具列 */
-.format-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.format-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .seg { display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg-btn, .dmode-btn {
   background: transparent; border: none; color: var(--text-dim);
