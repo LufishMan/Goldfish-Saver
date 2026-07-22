@@ -33,6 +33,11 @@
           </select>
         </div>
         <input id="search" class="search" type="text" placeholder="搜尋標題 / 內容 / 標籤…" />
+        <div class="status-tabs" id="statusTabs">
+          <button class="status-tab active" data-status="todo">待辦 <span class="st-count">0</span></button>
+          <button class="status-tab" data-status="processing">處理中 <span class="st-count">0</span></button>
+          <button class="status-tab" data-status="done">已完成 <span class="st-count">0</span></button>
+        </div>
       </div>
       <ul id="memoList" class="memo-list"></ul>
       <div class="sidebar-foot">
@@ -48,6 +53,9 @@
       </div>
     </aside>
 
+    <!-- 拖曳分隔條：調整清單／編輯區欄寬 -->
+    <div class="resizer" id="resizer" title="拖曳調整欄寬"></div>
+
     <!-- 右側：編輯區 -->
     <main class="editor">
       <div id="emptyState" class="empty-state">
@@ -62,6 +70,15 @@
 
         <!-- 日期：單日 / 區間 -->
         <div class="meta-row">
+          <div class="meta-item">
+            <span class="meta-label">狀態</span>
+            <div class="seg seg-sm" id="statusSeg">
+              <button class="seg-btn active" data-status="todo">待辦</button>
+              <button class="seg-btn" data-status="processing">處理中</button>
+              <button class="seg-btn" data-status="done">已完成</button>
+            </div>
+          </div>
+
           <div class="meta-item">
             <span class="meta-label">日期模式</span>
             <div class="seg seg-sm">
@@ -94,6 +111,21 @@
           </label>
         </div>
         <div id="dateError" class="date-error hidden"></div>
+
+        <!-- 待辦提醒 -->
+        <div class="remind-row">
+          <label class="remind-toggle" title="到指定時間跳出系統提醒">
+            <input id="remindToggle" type="checkbox" />
+            <span class="meta-label">⏰ 提醒</span>
+          </label>
+          <label class="meta-item hidden" id="remindAtWrap">
+            <span class="meta-label">提醒時間</span>
+            <span class="date-field">
+              <input id="remindAt" class="date-input remind-input" type="datetime-local" />
+            </span>
+          </label>
+          <span id="remindHint" class="remind-hint hidden"></span>
+        </div>
 
         <!-- 標籤（最多 2 個） -->
         <div class="tag-row">

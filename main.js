@@ -1,6 +1,10 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Windows 11：設定 AppUserModelID，通知才能以正確的應用程式身分／圖示顯示於通知中心
+const APP_ID = 'com.kenlu.goldfishsaver';
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
 // 資料檔放在使用者資料夾，關閉程式後資料仍保留
 const dataFile = path.join(app.getPath('userData'), 'memos.json');
@@ -72,6 +76,31 @@ ipcMain.handle('window:setOverlay', (e, opts) => {
   if (win && win.setTitleBarOverlay) {
     try { win.setTitleBarOverlay(opts); } catch (err) {}
   }
+});
+
+// 系統級待辦提醒：顯示 Windows 11 原生通知（Toast）
+// payload = { id, title, body }
+ipcMain.handle('notify:show', (e, payload = {}) => {
+  if (!Notification.isSupported()) return false;
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const n = new Notification({
+    title: payload.title || '待辦提醒',
+    body: payload.body || '',
+    icon: path.join(__dirname, 'build', 'icon.ico'),
+    timeoutType: 'default',
+  });
+  // 點擊通知：喚回視窗並請渲染程序開啟該則備忘錄
+  n.on('click', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.moveTop();
+    }
+    if (payload.id) e.sender.send('notification:open', payload.id);
+  });
+  n.show();
+  return true;
 });
 
 // 檢視模式：縮小成右下角浮動小視窗並置頂（子母畫面）

@@ -20,6 +20,11 @@
   --scroll-hover: #55555f;
   --swatch-ring: #fff;
   --content-fs: 14px;    /* 內容/編輯區字級（可由設定調整） */
+  /* 狀態色（待辦=藍 / 處理中=橙 / 已完成=綠），提升易讀性 */
+  --st-todo: #6fb3e0;
+  --st-processing: #eaa13a;
+  --st-done: #7bc86c;
+  --on-status: #1c1c22;  /* 狀態色底上的文字（深色，三色皆可讀） */
 }
 
 /* ============ 主題 ============ */
@@ -91,13 +96,79 @@ input, textarea, button, select, [contenteditable] {
 
 /* ---------- 側邊清單 ---------- */
 .sidebar {
-  width: 300px;
-  min-width: 300px;
+  width: var(--sidebar-w, 300px);
+  min-width: 220px;
+  max-width: 560px;
+  flex-shrink: 0;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }
+
+/* 拖曳分隔條 */
+.resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.resizer:hover, .resizer.dragging { background: var(--accent); }
+
+/* 狀態分頁 */
+.status-tabs { display: flex; gap: 4px; }
+.status-tab {
+  flex: 1;
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .22s ease, color .22s ease,
+              border-color .22s ease, transform .12s ease;
+}
+/* 每個狀態對應一種色（--st） */
+.status-tab[data-status="todo"]       { --st: var(--st-todo); }
+.status-tab[data-status="processing"] { --st: var(--st-processing); }
+.status-tab[data-status="done"]       { --st: var(--st-done); }
+/* 未選取時的彩色圓點，讓三個分頁一眼可辨 */
+.status-tab::before {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--st);
+  flex-shrink: 0;
+  transition: transform .22s ease, background-color .22s ease;
+}
+.status-tab:hover { border-color: var(--st); color: var(--text); }
+.status-tab.active {
+  background: var(--st);
+  color: var(--on-status);
+  border-color: var(--st);
+  font-weight: 700;
+}
+.status-tab.active::before {
+  background: var(--on-status);
+  transform: scale(1.05);
+}
+/* 切換分頁時的輕微彈跳 */
+.status-tab.tab-pop { animation: tabPop .3s ease; }
+@keyframes tabPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+.st-count {
+  font-size: 11px; opacity: .7;
+  min-width: 14px;
+  transition: opacity .22s ease;
+}
+.status-tab.active .st-count { opacity: 1; }
 
 .sidebar-head { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .head-row { display: flex; align-items: center; gap: 8px; }
@@ -161,6 +232,19 @@ input, textarea, button, select, [contenteditable] {
 }
 .memo-item:hover { border-color: var(--border); }
 .memo-item.active { background: var(--active-bg); }
+
+/* 切換狀態分頁時：清單項目依序淡入（僅切換分頁時觸發一次） */
+.memo-list.switch-in .memo-item {
+  animation: itemIn .32s ease both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memo-list.switch-in .memo-item { animation: none; }
+}
 
 .mi-title-row { display: flex; align-items: center; gap: 6px; }
 .mi-pin { font-size: 12px; }
@@ -418,6 +502,58 @@ input, textarea, button, select, [contenteditable] {
   margin: 2px 0 8px;
 }
 
+/* 待辦提醒 */
+.remind-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 2px 0 12px;
+}
+.remind-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.remind-toggle input { cursor: pointer; accent-color: var(--accent); }
+.remind-toggle .meta-label { font-size: 13px; }
+.remind-input { padding-right: 10px; }
+/* 提醒欄位還原原生日曆鈕（此欄無 emoji 疊圖） */
+.remind-input::-webkit-calendar-picker-indicator {
+  position: static; width: auto; height: auto;
+  opacity: .6; cursor: pointer; filter: none;
+}
+:root:not([data-theme="paper"]) .remind-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+.remind-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.remind-hint.due { color: var(--accent); }
+.remind-hint.fired { color: var(--text-dim); opacity: .8; }
+
+/* 清單上的提醒徽章 */
+.mi-remind {
+  flex-shrink: 0;
+  display: inline-block;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.mi-remind.fired {
+  color: var(--text-dim);
+  background: transparent;
+  font-weight: 500;
+  opacity: .7;
+}
+
 /* 標籤 */
 .tag-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 12px; }
 .tag-chips { display: flex; gap: 6px; }
@@ -448,9 +584,50 @@ input, textarea, button, select, [contenteditable] {
 .seg-btn, .dmode-btn {
   background: transparent; border: none; color: var(--text-dim);
   padding: 6px 14px; cursor: pointer; font-size: 13px;
+  transition: background-color .22s ease, color .22s ease;
 }
 .seg-sm .dmode-btn { padding: 6px 12px; }
 .seg-btn.active, .dmode-btn.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+/* 編輯區狀態分段：依狀態給色 + 切換動效 */
+#statusSeg .seg-btn { position: relative; }
+#statusSeg .seg-btn[data-status="todo"].active       { background: var(--st-todo); }
+#statusSeg .seg-btn[data-status="processing"].active  { background: var(--st-processing); }
+#statusSeg .seg-btn[data-status="done"].active        { background: var(--st-done); }
+#statusSeg .seg-btn.active { color: var(--on-status); }
+/* 使用者點擊切換時的彈跳（僅由 JS 加上，開啟便條時不觸發） */
+#statusSeg .seg-btn.pop { animation: segPop .32s ease; }
+@keyframes segPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+/* 標記「已完成」時的綠色光暈 */
+#statusSeg .seg-btn.done-burst::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--st-done);
+  animation: doneGlow .6s ease-out;
+  pointer-events: none;
+}
+@keyframes doneGlow {
+  0%   { box-shadow: 0 0 0 0 rgba(123, 200, 108, .7); }
+  100% { box-shadow: 0 0 0 14px rgba(123, 200, 108, 0); }
+}
+/* 飛出的 ✓ 標記 */
+.status-cheer {
+  position: absolute;
+  font-size: 18px;
+  pointer-events: none;
+  animation: cheer .7s ease-out forwards;
+  z-index: 5;
+}
+@keyframes cheer {
+  0%   { opacity: 0; transform: translateY(0) scale(.6); }
+  30%  { opacity: 1; transform: translateY(-10px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-26px) scale(1); }
+}
 
 .color-bar { display: flex; gap: 6px; align-items: center; }
 .swatch {
@@ -558,7 +735,8 @@ input, textarea, button, select, [contenteditable] {
 /* ---------- 檢視模式：浮動小視窗（子母畫面） ---------- */
 /* 進入 mini 模式時，隱藏完整 UI，只留 miniPane 撐滿小視窗 */
 .app.mini-mode .sidebar,
-.app.mini-mode .editor { display: none; }
+.app.mini-mode .editor,
+.app.mini-mode .resizer { display: none; }
 .mini-pane { display: none; }
 .app.mini-mode .mini-pane {
   display: flex; flex-direction: column;

@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('memoAPI', {
   setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:setAlwaysOnTop', flag),
   setOverlay: (opts) => ipcRenderer.invoke('window:setOverlay', opts),
   enterMini: () => ipcRenderer.invoke('window:enterMini'),
-  exitMini: () => ipcRenderer.invoke('window:exitMini')
+  exitMini: () => ipcRenderer.invoke('window:exitMini'),
+  // 系統級待辦提醒
+  notify: (payload) => ipcRenderer.invoke('notify:show', payload),
+  onNotificationClick: (cb) =>
+    ipcRenderer.on('notification:open', (_e, id) => cb(id))
 });

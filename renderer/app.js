@@ -9,6 +9,9 @@
      tags: [],        // 最多 2 個
      color,           // 顏色標籤
      pinned: bool,
+     remind: bool,    // 是否需要提醒
+     remindAt,        // 提醒時間 'YYYY-MM-DDTHH:mm'（datetime-local）
+     notified: bool,  // 該提醒是否已觸發（避免重複跳出）
      createdAt, updatedAt
    }
    ============================================================ */
@@ -23,8 +26,17 @@ const COLORS = [
 ];
 const MAX_TAGS = 3;
 
+// 生命週期狀態（互斥單一值，與 tags/color 分開）
+const STATUS = [
+  { key: 'todo',       label: '待辦'   },
+  { key: 'processing', label: '處理中' },
+  { key: 'done',       label: '已完成' },
+];
+const STATUS_KEYS = STATUS.map(s => s.key);
+
 const els = {
   app: document.querySelector('.app'),
+  sidebar: document.querySelector('.sidebar'),
   list: document.getElementById('memoList'),
   newBtn: document.getElementById('newBtn'),
   modeBtn: document.getElementById('modeBtn'),
@@ -54,6 +66,9 @@ const els = {
   miniTiptap: document.getElementById('miniTiptap'),
   miniMdToolbar: document.getElementById('miniMdToolbar'),
   search: document.getElementById('search'),
+  statusTabs: document.getElementById('statusTabs'),
+  statusSeg: document.getElementById('statusSeg'),
+  resizer: document.getElementById('resizer'),
   sortSelect: document.getElementById('sortSelect'),
   countLabel: document.getElementById('countLabel'),
   emptyState: document.getElementById('emptyState'),
@@ -68,6 +83,11 @@ const els = {
   startDate: document.getElementById('startDate'),
   endDate: document.getElementById('endDate'),
   dateError: document.getElementById('dateError'),
+  // 提醒
+  remindToggle: document.getElementById('remindToggle'),
+  remindAtWrap: document.getElementById('remindAtWrap'),
+  remindAt: document.getElementById('remindAt'),
+  remindHint: document.getElementById('remindHint'),
   // 其他欄位
   tagChips: document.getElementById('tagChips'),
   tagInput: document.getElementById('tagInput'),
@@ -83,6 +103,7 @@ const els = {
 let memos = [];
 let activeId = null;
 let saveTimer = null;
+let statusFilter = 'todo';   // 目前分頁：todo | processing | done
 let viewMode = false;     // 檢視模式（浮動小視窗）
 let tiptap = null;        // 主編輯器 TipTap 實例
 let miniTiptap = null;    // 檢視模式 TipTap 實例
@@ -167,6 +188,32 @@ function dateBadge(m, cls = 'mi-date') {
   return `<span class="${cls}${state}">📅 ${escapeHtml(d)}</span>`;
 }
 
+// 提醒是否已排定（有開啟且有時間）
+function hasRemind(m) {
+  return !!(m.remind && m.remindAt);
+}
+
+// 提醒徽章：待觸發顯示 ⏰，已觸發顯示 🔔（淡化）
+function remindBadge(m) {
+  if (!hasRemind(m)) return '';
+  const fired = m.notified;
+  const t = m.remindAt.replace('T', ' ');
+  return `<span class="mi-remind${fired ? ' fired' : ''}" title="提醒時間：${escapeHtml(t)}">${fired ? '🔔' : '⏰'} ${escapeHtml(t.slice(5))}</span>`;
+}
+
+// 將 datetime-local 字串轉為時間戳（本地時區）
+function remindTs(m) {
+  if (!hasRemind(m)) return NaN;
+  const d = new Date(m.remindAt);
+  return d.getTime();
+}
+
+// 將 Date 轉為 datetime-local 需要的本地字串 'YYYY-MM-DDTHH:mm'
+function toLocalDatetimeValue(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 // 區間是否超過 3 個月，或結束早於開始
 function rangeInvalid(start, end) {
   if (!start || !end) return false;
@@ -187,6 +234,10 @@ async function loadAll() {
     if (!Array.isArray(m.tags)) m.tags = [];
     if (!m.color) m.color = COLORS[0].val;
     if (typeof m.pinned !== 'boolean') m.pinned = false;
+    if (typeof m.remind !== 'boolean') m.remind = false;
+    if (typeof m.remindAt !== 'string') m.remindAt = '';
+    if (typeof m.notified !== 'boolean') m.notified = false;
+    if (!STATUS_KEYS.includes(m.status)) m.status = 'todo'; // 舊資料預設為待辦
     if (m.format !== 'markdown') m.format = 'markdown'; // 已移除 HTML 格式，全部統一為 markdown
   });
   renderList();
@@ -221,7 +272,8 @@ function finalizeActive() {
 /* ---------- 清單 ---------- */
 function getVisibleMemos() {
   const q = els.search.value.trim().toLowerCase();
-  let arr = memos.filter(m => {
+  let arr = memos.filter(m => m.status === statusFilter);
+  arr = arr.filter(m => {
     if (!q) return true;
     return (m.title || '').toLowerCase().includes(q) ||
            (m.content || '').toLowerCase().includes(q) ||
@@ -248,10 +300,12 @@ function renderList() {
   const visible = getVisibleMemos();
   const draggable = canDrag();
   els.list.innerHTML = '';
+  let idx = 0;
   for (const m of visible) {
     const li = document.createElement('li');
     li.className = 'memo-item' + (m.id === activeId ? ' active' : '');
     li.style.setProperty('--mi-color', m.color || COLORS[0].val);
+    li.style.setProperty('--i', idx++);
     li.dataset.id = m.id;
     li.draggable = draggable;
     const tagsHtml = (m.tags || [])
@@ -268,6 +322,7 @@ function renderList() {
       <div class="mi-snippet">${escapeHtml(plainSnippet(m).slice(0, 60)) || '（無內容）'}</div>
       <div class="mi-meta">
         ${dateBadge(m)}
+        ${remindBadge(m)}
         <div class="mi-tags">${tagsHtml}</div>
       </div>`;
     li.addEventListener('click', () => selectMemo(m.id));
@@ -278,7 +333,21 @@ function renderList() {
     if (draggable) attachDragHandlers(li);
     els.list.appendChild(li);
   }
-  els.countLabel.textContent = `${memos.length} 則備忘錄`;
+  els.countLabel.textContent = `${visible.length} 則備忘錄`;
+  updateStatusCounts();
+}
+
+// 更新分頁上的各狀態數量（全量計數，不受搜尋影響）
+function updateStatusCounts() {
+  if (!els.statusTabs) return;
+  const counts = { todo: 0, processing: 0, done: 0 };
+  memos.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
+  els.statusTabs.querySelectorAll('.status-tab').forEach(tab => {
+    const key = tab.dataset.status;
+    tab.classList.toggle('active', key === statusFilter);
+    const c = tab.querySelector('.st-count');
+    if (c) c.textContent = counts[key] || 0;
+  });
 }
 
 /* ---------- 拖曳排序 ---------- */
@@ -399,6 +468,38 @@ function applyDateMode(m) {
   els.dateError.classList.add('hidden');
 }
 
+/* ---------- 提醒 ---------- */
+// 依 memo 狀態更新提醒欄位的顯示與提示文字
+function applyRemindUI(m) {
+  els.remindToggle.checked = !!m.remind;
+  els.remindAtWrap.classList.toggle('hidden', !m.remind);
+  els.remindAt.value = m.remindAt || '';
+  updateRemindHint(m);
+}
+
+function updateRemindHint(m) {
+  const hint = els.remindHint;
+  if (!m.remind || !m.remindAt) {
+    hint.classList.add('hidden');
+    hint.textContent = '';
+    return;
+  }
+  const ts = remindTs(m);
+  let text, cls = 'remind-hint';
+  if (isNaN(ts)) { text = ''; }
+  else if (m.notified) { text = '🔔 已提醒'; cls += ' fired'; }
+  else if (ts <= Date.now()) { text = '⏰ 即將提醒'; cls += ' due'; }
+  else {
+    const mins = Math.round((ts - Date.now()) / 60000);
+    text = mins < 60 ? `⏰ ${mins} 分鐘後提醒`
+      : mins < 1440 ? `⏰ ${Math.round(mins / 60)} 小時後提醒`
+      : `⏰ ${Math.round(mins / 1440)} 天後提醒`;
+  }
+  hint.className = cls;
+  hint.textContent = text;
+  hint.classList.toggle('hidden', !text);
+}
+
 function showDateError(kind) {
   els.dateError.textContent = kind === 'too-long'
     ? '⚠ 區間不可大於 3 個月，已還原。'
@@ -432,11 +533,13 @@ function selectMemo(id) {
   els.startDate.value = m.startDate || '';
   els.endDate.value = m.endDate || '';
   applyDateMode(m);
+  applyRemindUI(m);
   renderTags(m);
   els.tagInput.value = '';
   updateColorBar(m.color || COLORS[0].val);
   els.pinBtn.classList.toggle('active', !!m.pinned);
   els.pinBtn.textContent = m.pinned ? '📌 已釘選' : '📌 釘選';
+  updateStatusSeg(m.status);
   refreshContentView();
   renderList();
 }
@@ -448,6 +551,8 @@ els.newBtn.addEventListener('click', () => {
     id: uid(), title: '', content: '', format: 'markdown',
     dateMode: 'single', date: '', startDate: '', endDate: '', // 不給預設日期
     note: '', tags: [], color: COLORS[0].val, pinned: false,
+    remind: false, remindAt: '', notified: false,
+    status: statusFilter, // 繼承目前分頁，新項目留在當前視圖
     createdAt: Date.now(),
   };
   memos.push(m); // 新便條從最下方往下長
@@ -462,7 +567,7 @@ els.title.addEventListener('input', () => {
 });
 
 /* 點整個日期框就開日曆（不必只點 icon） */
-[els.date, els.startDate, els.endDate].forEach(inp => {
+[els.date, els.startDate, els.endDate, els.remindAt].forEach(inp => {
   inp.addEventListener('click', () => {
     if (typeof inp.showPicker === 'function') {
       try { inp.showPicker(); } catch (e) {}
@@ -521,6 +626,28 @@ els.pinBtn.addEventListener('click', () => {
   touch(m);
 });
 
+/* 提醒開關 */
+els.remindToggle.addEventListener('change', () => {
+  const m = currentMemo(); if (!m) return;
+  m.remind = els.remindToggle.checked;
+  if (m.remind && !m.remindAt) {
+    // 預設提醒時間：一小時後
+    m.remindAt = toLocalDatetimeValue(new Date(Date.now() + 60 * 60 * 1000));
+  }
+  m.notified = false; // 重新啟用提醒
+  applyRemindUI(m);
+  touch(m);
+});
+
+/* 提醒時間 */
+els.remindAt.addEventListener('input', () => {
+  const m = currentMemo(); if (!m) return;
+  m.remindAt = els.remindAt.value;
+  m.notified = false; // 改了時間 → 重新等待觸發
+  updateRemindHint(m);
+  touch(m);
+});
+
 /* 刪除 */
 els.deleteBtn.addEventListener('click', () => {
   if (activeId) deleteMemo(activeId);
@@ -528,6 +655,76 @@ els.deleteBtn.addEventListener('click', () => {
 
 els.search.addEventListener('input', renderList);
 els.sortSelect.addEventListener('change', renderList);
+
+/* ---------- 狀態切換動效 ---------- */
+// 清單依序淡入（僅在切換分頁時播放一次，避免每次 renderList 都動）
+function playListSwitch() {
+  const list = els.list;
+  list.classList.remove('switch-in');
+  void list.offsetWidth;        // 強制 reflow 重啟動畫
+  list.classList.add('switch-in');
+  clearTimeout(playListSwitch._t);
+  // 動畫（含 stagger）結束後移除 class，讓之後的 render 不再動
+  playListSwitch._t = setTimeout(() => list.classList.remove('switch-in'), 900);
+}
+
+// 短暫加上 class 播放一次性動畫，結束後自動移除
+function pulseClass(el, cls, ms = 600) {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+
+// 標記「已完成」時，在按鈕上飛出一個 ✓
+function cheerDone(btn) {
+  if (!btn) return;
+  const cheer = document.createElement('span');
+  cheer.className = 'status-cheer';
+  cheer.textContent = '✓';
+  cheer.style.left = '50%';
+  cheer.style.top = '0';
+  cheer.style.transform = 'translateX(-50%)';
+  btn.appendChild(cheer);
+  setTimeout(() => cheer.remove(), 750);
+}
+
+/* ---------- 狀態分頁 / 編輯區狀態切換 ---------- */
+// 更新編輯區狀態分段的 active
+function updateStatusSeg(status) {
+  if (!els.statusSeg) return;
+  els.statusSeg.querySelectorAll('.seg-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === status));
+}
+
+// 分頁：切換目前檢視的狀態
+els.statusTabs.addEventListener('click', (e) => {
+  const tab = e.target.closest('.status-tab'); if (!tab) return;
+  const next = tab.dataset.status;
+  if (next === statusFilter) return;
+  statusFilter = next;
+  pulseClass(tab, 'tab-pop', 320);
+  renderList();
+  playListSwitch();
+});
+
+// 編輯區：改變這則的狀態（分頁跟著走，保持選中項可見）
+els.statusSeg.addEventListener('click', (e) => {
+  const btn = e.target.closest('.seg-btn'); if (!btn) return;
+  const m = currentMemo(); if (!m) return;
+  const next = btn.dataset.status;
+  const changed = next !== m.status;
+  m.status = next;
+  updateStatusSeg(m.status);
+  if (changed) {
+    pulseClass(btn, 'pop', 340);
+    if (next === 'done') { pulseClass(btn, 'done-burst', 620); cheerDone(btn); }
+  }
+  statusFilter = m.status;
+  touch(m); // persist + renderList（更新分頁 active 與計數）
+  if (changed) playListSwitch();
+});
 
 /* ---------- 檢視模式：浮動小視窗 ---------- */
 // 小視窗的清單
@@ -550,6 +747,7 @@ function renderMiniList() {
       </div>
       <div class="mi-meta">
         ${dateBadge(m)}
+        ${remindBadge(m)}
         <div class="mi-tags">${tagsHtml}</div>
       </div>`;
     li.addEventListener('click', () => showMiniDetail(m.id));
@@ -760,6 +958,102 @@ els.mdToolbar.addEventListener('click', (e) => {
   if (fn) fn(tiptap);
 });
 
+/* ---------- 欄寬拖曳 ---------- */
+const SIDEBAR_MIN = 220, SIDEBAR_MAX = 560;
+
+function applySidebarWidth(px) {
+  const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, px));
+  els.app.style.setProperty('--sidebar-w', w + 'px');
+  return w;
+}
+
+function loadSidebarWidth() {
+  const raw = parseInt(localStorage.getItem('memo-sidebar-w'), 10);
+  if (!isNaN(raw)) applySidebarWidth(raw);
+}
+
+(function initResizer() {
+  if (!els.resizer) return;
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    const left = els.app.getBoundingClientRect().left;
+    applySidebarWidth(e.clientX - left);
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    els.resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    const w = parseInt(getComputedStyle(els.sidebar).width, 10);
+    if (!isNaN(w)) localStorage.setItem('memo-sidebar-w', w);
+  };
+  els.resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    els.resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
+/* ---------- 待辦提醒排程 ---------- */
+// 掃描所有 memo，觸發到期且尚未提醒的項目
+function checkReminders() {
+  const now = Date.now();
+  let changed = false;
+  for (const m of memos) {
+    if (!hasRemind(m) || m.notified) continue;
+    if (m.status === 'done') continue; // 已完成不再提醒
+    const ts = remindTs(m);
+    if (isNaN(ts) || ts > now) continue;
+    fireReminder(m);
+    m.notified = true;
+    changed = true;
+  }
+  if (changed) {
+    persist();
+    renderList();
+    if (viewMode) renderMiniList();
+    const active = currentMemo();
+    if (active) updateRemindHint(active);
+  }
+}
+
+// 發出系統通知（Windows 11 原生 Toast）
+function fireReminder(m) {
+  const title = m.title ? `⏰ ${m.title}` : '⏰ 待辦提醒';
+  let body = plainSnippet(m).slice(0, 120);
+  if (!body) body = dateLabel(m) ? `日期：${dateLabel(m)}` : '你有一則待辦事項需要處理。';
+  try {
+    window.memoAPI.notify({ id: m.id, title, body });
+  } catch (e) {
+    console.error('提醒通知失敗：', e);
+  }
+}
+
+// 點擊通知：切到該則所在分頁並選取、開啟
+function openMemoFromNotification(id) {
+  const m = memos.find(x => x.id === id);
+  if (!m) return;
+  if (viewMode) { setMode(false); }
+  if (m.status !== statusFilter) { statusFilter = m.status; }
+  renderList();
+  selectMemo(id);
+}
+
+if (window.memoAPI.onNotificationClick) {
+  window.memoAPI.onNotificationClick(openMemoFromNotification);
+}
+
+// 每 30 秒掃描一次；啟動後短暫延遲先掃一次（補觸發已過期的提醒）
+setInterval(checkReminders, 30 * 1000);
+
 /* ---------- 啟動 ---------- */
 function hideLoading() {
   const el = document.getElementById('loading');
@@ -772,5 +1066,10 @@ document.documentElement.classList.add('platform-' + (window.memoAPI.platform ||
 buildColorBar();
 loadSettings();
 applyAllSettings();
+loadSidebarWidth();
 initTipTap();
-loadAll().finally(hideLoading);
+loadAll().finally(() => {
+  hideLoading();
+  // 啟動後補掃一次：觸發程式未開啟期間已到期的提醒
+  setTimeout(checkReminders, 1500);
+});
